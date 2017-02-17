@@ -143,7 +143,7 @@ init_regulator(QueueName, rate, Name, Opts) ->
     ets:new(Table,
             [public, set, named_table,
              {write_concurrency, true}]),
-    ets:insert_new(Table, {Name, Limit}),
+    ets:insert_new(Table, {Name, Limit + 1}),
     %% set a up a recurrent timer that sets the rate
     %% counter to the limit on every second
     %% initialize the counter to limit+1 since
