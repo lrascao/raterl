@@ -28,7 +28,8 @@
 
 %% API
 -export([start_link/1,
-         new/1]).
+         new/1,
+         stop/1]).
 
 %% Gen_server callbacks
 -export([init/1,
@@ -56,6 +57,10 @@ start_link({Name, Opts}) ->
 
 new(Args) ->
     supervisor:start_child(raterl_queue_sup, [Args]).
+
+stop(Name) ->
+    ok = gen_server:cast(raterl_utils:queue_name(Name),
+                         stop).
 
 %%====================================================================
 %% Gen_server callbacks
@@ -98,6 +103,8 @@ handle_call({modify_regulator, RegName, Limit}, _From,
 handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
+handle_cast(stop, State) ->
+    {stop, normal, State};
 handle_cast(_, State) ->
     {noreply, State}.
 
