@@ -55,7 +55,7 @@ start_link() ->
 init([]) ->
     Opts = application:get_all_env(raterl),
     lists:foreach(fun({_QueueName, _QueueOpts} = Queue) ->
-                    {ok, _} = raterl_queue:new(Queue)
+                    {ok, _} = raterl_queue:new(Queue)
                   end, proplists:get_value(queues, Opts)),
     {ok, #state{}}.
 
