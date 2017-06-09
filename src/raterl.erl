@@ -49,12 +49,10 @@ run(Name, {Type, RegulatorName}, Fun) ->
     end.
 
 info(Name) ->
-    gen_server:call(raterl_utils:queue_name(Name),
-                    info).
+    raterl_queue:info(Name).
 
 modify_regulator(Name, RegName, Limit) ->
-    gen_server:call(raterl_utils:queue_name(Name),
-                    {modify_regulator, RegName, Limit}).
+    raterl_queue:modify_regulator(Name, RegName, Limit).
 
 %%====================================================================
 %% Internal functions
