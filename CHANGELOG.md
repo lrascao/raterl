@@ -4,6 +4,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.1.1] - 03-08-2017
+### Added
+    * Continuous integration
+### Changed
+### Fixed
+    * Avoid canceling timer when modifying the regulator
+
 ## [0.1.0] - 10-02-2016
 ### Added
     * First version
