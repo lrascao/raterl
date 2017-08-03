@@ -28,7 +28,8 @@
 
 %% API
 -export([start_link/1,
-         new/1]).
+         new/1,
+         stop/1]).
 
 %% Gen_server callbacks
 -export([init/1,
@@ -56,6 +57,10 @@ start_link({Name, Opts}) ->
 
 new(Args) ->
     supervisor:start_child(raterl_queue_sup, [Args]).
+
+stop(Name) ->
+    ok = gen_server:cast(raterl_utils:queue_name(Name),
+                         stop).
 
 %%====================================================================
 %% Gen_server callbacks
@@ -98,6 +103,8 @@ handle_call({modify_regulator, RegName, Limit}, _From,
 handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
+handle_cast(stop, State) ->
+    {stop, normal, State};
 handle_cast(_, State) ->
     {noreply, State}.
 
@@ -136,7 +143,7 @@ init_regulator(QueueName, rate, Name, Opts) ->
     ets:new(Table,
             [public, set, named_table,
              {write_concurrency, true}]),
-    ets:insert_new(Table, {Name, Limit}),
+    ets:insert_new(Table, {Name, Limit + 1}),
     %% set a up a recurrent timer that sets the rate
     %% counter to the limit on every second
     %% initialize the counter to limit+1 since
