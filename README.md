@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/lrascao/raterl.svg?branch=master)](https://travis-ci.org/lrascao/raterl)
+
 # raterl
 
 Erlang flow control application heavily inspired in `jobs` and `ratx`,
