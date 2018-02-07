@@ -1,5 +1,5 @@
 {application, raterl,
- [{description, "An OTP application"},
+ [{description, "Erlang flow control"},
   {vsn, "0.1.2"},
   {registered, []},
   {mod, { raterl_app, []}},
@@ -11,6 +11,6 @@
   {modules, []},
 
   {maintainers, []},
-  {licenses, []},
-  {links, []}
+  {licenses, ["Apache License 2.0"]},
+  {links, [{"Github", "https://github.com/lrascao/raterl"}]}
  ]}.
