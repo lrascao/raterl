@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.1.3] - 07-01-2018
+### Added
+### Changed
+### Fixed
+    * Fill out hex bureaucracy
+
 ## [0.1.2] - 07-01-2018
 ### Added
 ### Changed

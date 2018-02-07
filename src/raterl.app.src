@@ -1,6 +1,6 @@
 {application, raterl,
  [{description, "Erlang flow control"},
-  {vsn, "0.1.2"},
+  {vsn, "0.1.3"},
   {registered, []},
   {mod, { raterl_app, []}},
   {applications,
