@@ -23,7 +23,7 @@ on a system, you'd start by the configuration:
 ```erlang
 [{raterl, [
     {queues, [
-        {logins, [
+        {login_requests, [
             {regulator, [
                 {name, max_login_rate}, 
                 {type, rate},
@@ -38,8 +38,7 @@ on a system, you'd start by the configuration:
 Then on the code you ask permission from `raterl` before accepting a login:
 
 ```erlang
-    case catch raterl:run(login_requests, {rate, max_login_rate},
-                          AcceptFun) of
+    case raterl:run(login_requests, {rate, max_login_rate}, fun () -> Ret end) of
         limit_reached ->
             {error, throttled};
         Ret -> Ret
