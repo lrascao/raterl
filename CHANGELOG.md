@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.1.2] - 07-01-2018
+### Added
+### Changed
+    * Make README a bit more consistent
+### Fixed
+
 ## [0.1.1] - 03-08-2017
 ### Added
     * Continuous integration
