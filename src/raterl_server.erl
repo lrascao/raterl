@@ -28,6 +28,7 @@
 
 %% API
 -export([start_link/0]).
+-export([reconfigure/1]).
 
 %% Gen_server callbacks
 -export([init/1,
@@ -39,7 +40,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {}).
+-record(state, {queues}).
 
 %%====================================================================
 %% API functions
@@ -48,19 +49,37 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
+reconfigure(Queues) ->
+    gen_server:call(?SERVER, {reconfigure, Queues}, infinity).
+
 %%====================================================================
 %% Gen_server callbacks
 %%====================================================================
 
 init([]) ->
     Opts = application:get_all_env(raterl),
+    Queues = proplists:get_value(queues, Opts),
     lists:foreach(fun({_QueueName, _QueueOpts} = Queue) ->
                     {ok, _} = raterl_queue:new(Queue)
-                  end, proplists:get_value(queues, Opts)),
-    {ok, #state{}}.
+                  end, Queues),
+    {ok, #state{queues = Queues}}.
 
-handle_call(_Msg, _From, State) ->
-    {reply, ok, State}.
+handle_call({reconfigure, Queues}, _From, State) ->
+    CurrentQueues = State#state.queues,
+    ToRemove = CurrentQueues -- Queues,
+    ToAdd = Queues -- CurrentQueues,
+    lists:foreach(
+      fun ({QueueName, _QueueOpts}) ->
+              ok = raterl_queue:stop(QueueName)
+      end,
+      ToRemove),
+    lists:foreach(
+      fun ({_QueueName, _QueueOpts} = Queue) ->
+              {ok, _} = raterl_queue:new(Queue)
+      end,
+      ToAdd),
+    NewState = State#state{ queues = Queues },
+    {reply, ok, NewState}.
 
 handle_cast(_, State) ->
     {noreply, State}.
