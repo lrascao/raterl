@@ -43,9 +43,11 @@ run(Name, {Type, RegulatorName}, Fun) ->
         limit_reached ->
             limit_reached;
         Ref when is_reference(Ref) ->
-            Res = (catch Fun()),
-            done(Name, {Type, RegulatorName}),
-            Res
+            try
+                Fun()
+            after
+                done(Name, {Type, RegulatorName})
+            end
     end.
 
 info(Name) ->
