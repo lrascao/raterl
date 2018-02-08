@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
+### Added
+    * Ability of adding/removing/reconfiguring queues in runtime
 
 ## [0.1.3] - 07-01-2018
 ### Added
