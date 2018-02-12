@@ -58,7 +58,7 @@ reconfigure(Queues) ->
 
 init([]) ->
     Opts = application:get_all_env(raterl),
-    Queues = proplists:get_value(queues, Opts),
+    Queues = proplists:get_value(queues, Opts, []),
     lists:foreach(fun({_QueueName, _QueueOpts} = Queue) ->
                     {ok, _} = raterl_queue:new(Queue)
                   end, Queues),
