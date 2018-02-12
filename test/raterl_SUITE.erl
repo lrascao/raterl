@@ -40,8 +40,6 @@ init_per_suite(Config) ->
     DataDir = lookup_config(data_dir, Config),
     log("suite config: ~p\n", [SuiteConfig]),
     log("data dir: ~p\n", [DataDir]),
-    %% load an empty initial config
-    application:set_env(raterl, queues, []),
     application:ensure_all_started(raterl),
     Config.
 
