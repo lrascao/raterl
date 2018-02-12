@@ -32,7 +32,7 @@ all() ->
 
 groups() ->
     [{rate, [],
-        [low_rate, close_rate, exceeded_rate]
+        [low_rate, close_rate, exceeded_rate, queue_reconfiguration]
      }].
 
 init_per_suite(Config) ->
@@ -40,8 +40,6 @@ init_per_suite(Config) ->
     DataDir = lookup_config(data_dir, Config),
     log("suite config: ~p\n", [SuiteConfig]),
     log("data dir: ~p\n", [DataDir]),
-    %% load an empty initial config
-    application:set_env(raterl, queues, []),
     application:ensure_all_started(raterl),
     Config.
 
@@ -122,6 +120,49 @@ exceeded_rate(Config) when is_list(Config) ->
                  [raterl:run(simple_rate, {rate, rate}, fun() -> ok end)
                    || _ <- lists:seq(1, 11)]),
     ok = raterl_queue:stop(simple_rate).
+
+queue_reconfiguration(doc) -> ["Add/remove queues in runtime"];
+queue_reconfiguration(suite) -> [];
+queue_reconfiguration(Config) when is_list(Config) ->
+    QueueOptsA = [{regulator, [{name,rate}, {type,rate}, {limit,10}]}],
+    QueueOptsB = [{regulator, [{name,rate}, {type,rate}, {limit,20}]}],
+
+    % we start with no queues
+    NoChildren = supervisor:which_children(raterl_queue_sup),
+    ?assertEqual([], NoChildren),
+
+    % we add one queue
+    ok = raterl:reconfigure_queues([{foo, QueueOptsA}]),
+    OneChild = supervisor:which_children(raterl_queue_sup),
+    ?assertMatch([_], OneChild),
+    ?assertNotEqual(undefined, whereis(raterl_utils:queue_name(foo))),
+
+    % we add one queue and remove the other
+    ok = raterl:reconfigure_queues([{bar, QueueOptsA}]),
+    AnotherChild = supervisor:which_children(raterl_queue_sup),
+    ?assertMatch([_], AnotherChild),
+    [{_, BarPid1, _, _}] = AnotherChild,
+    ?assertEqual(undefined, whereis(raterl_utils:queue_name(foo))),
+    ?assertNotEqual(undefined, whereis(raterl_utils:queue_name(bar))),
+
+    % we reconfigure a queue with same options and nothing happens
+    ok = raterl:reconfigure_queues([{bar, QueueOptsA}]),
+    YetAnotherChild = supervisor:which_children(raterl_queue_sup),
+    ?assertMatch([_], YetAnotherChild),
+    [{_, BarPid2, _, _}] = YetAnotherChild,
+    ?assertEqual(BarPid2, BarPid1),
+
+    % we reconfigure a queue with a different options and it gets recreated
+    ok = raterl:reconfigure_queues([{bar, QueueOptsB}]),
+    SurelyADifferentChild = supervisor:which_children(raterl_queue_sup),
+    ?assertMatch([_], SurelyADifferentChild),
+    [{_, BarPid3, _, _}] = SurelyADifferentChild,
+    ?assertNotEqual(BarPid3, BarPid2),
+
+    % we remove the queue and end up with none
+    ok = raterl:reconfigure_queues([]),
+    NoChildren = supervisor:which_children(raterl_queue_sup),
+    ?assertEqual([], NoChildren).
 
 %% -------------------------------------------------------------
 %% Private methods

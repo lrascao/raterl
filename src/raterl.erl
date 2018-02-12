@@ -27,7 +27,8 @@
 %% API
 -export([run/2, run/3,
          info/1,
-         modify_regulator/3]).
+         modify_regulator/3,
+         reconfigure_queues/1]).
 
 %%====================================================================
 %% API functions
@@ -43,9 +44,11 @@ run(Name, {Type, RegulatorName}, Fun) ->
         limit_reached ->
             limit_reached;
         Ref when is_reference(Ref) ->
-            Res = (catch Fun()),
-            done(Name, {Type, RegulatorName}),
-            Res
+            try
+                Fun()
+            after
+                done(Name, {Type, RegulatorName})
+            end
     end.
 
 info(Name) ->
@@ -53,6 +56,9 @@ info(Name) ->
 
 modify_regulator(Name, RegName, Limit) ->
     raterl_queue:modify_regulator(Name, RegName, Limit).
+
+reconfigure_queues(Queues) ->
+    raterl_server:reconfigure(Queues).
 
 %%====================================================================
 %% Internal functions

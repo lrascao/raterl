@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
 
+## [0.2.0] - 12-02-2018
+### Fixed
+    * Don't crash on boot upon lack of explicit env. config
+### Added
+    * Ability of adding/removing/reconfiguring queues in runtime
+
 ## [0.1.3] - 07-01-2018
 ### Added
 ### Changed
