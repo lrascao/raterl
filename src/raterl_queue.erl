@@ -49,7 +49,7 @@
 -record(state, {
           name :: atom(),
           regulator :: proplists:proplist(),
-          timer_ref :: reference()
+          timer_ref :: undefined | reference()
          }).
 
 %%====================================================================
