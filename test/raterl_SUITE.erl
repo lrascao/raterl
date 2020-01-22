@@ -76,7 +76,7 @@ end_per_testcase(_Func, Config) ->
 low_rate(doc) -> ["Low rate"];
 low_rate(suite) -> [];
 low_rate(Config) when is_list(Config) ->
-    {ok, _} = raterl_queue:new({simple_rate,
+    {ok, _} = raterl_queue:new({low_rate,
                                 [{regulator,
                                   [{name, rate},
                                    {type, rate},
@@ -84,16 +84,16 @@ low_rate(Config) when is_list(Config) ->
     %% the info request here is to ensure that
     %% the queue has been initialized before making
     %% any requests to it
-    % _ = raterl:info(simple_rate),
+    % _ = raterl:info(low_rate),
     ?assertMatch([ok,ok,ok,ok,ok],
-                 [raterl:run(simple_rate, {rate, rate}, fun() -> ok end)
+                 [raterl:run(low_rate, {rate, rate}, fun() -> ok end)
                     || _ <- lists:seq(1, 5)]),
-    ok = raterl_queue:stop(simple_rate).
+    ok = raterl_queue:stop(low_rate).
 
 close_rate(doc) -> ["Close rate"];
 close_rate(suite) -> [];
 close_rate(Config) when is_list(Config) ->
-    {ok, _} = raterl_queue:new({simple_rate,
+    {ok, _} = raterl_queue:new({close_rate,
                                 [{regulator,
                                   [{name, rate},
                                    {type, rate},
@@ -101,16 +101,16 @@ close_rate(Config) when is_list(Config) ->
     %% the info request here is to ensure that
     %% the queue has been initialized before making
     %% any requests to it
-    _ = raterl:info(simple_rate),
+    _ = raterl:info(close_rate),
     ?assertMatch([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok],
-                 [raterl:run(simple_rate, {rate, rate}, fun() -> ok end)
+                 [raterl:run(close_rate, {rate, rate}, fun() -> ok end)
                     || _ <- lists:seq(1, 10)]),
-    ok = raterl_queue:stop(simple_rate).
+    ok = raterl_queue:stop(close_rate).
 
 exceeded_rate(doc) -> ["Close rate"];
 exceeded_rate(suite) -> [];
 exceeded_rate(Config) when is_list(Config) ->
-    {ok, _} = raterl_queue:new({simple_rate,
+    {ok, _} = raterl_queue:new({exceeded_rate,
                                 [{regulator,
                                   [{name, rate},
                                    {type, rate},
@@ -118,65 +118,65 @@ exceeded_rate(Config) when is_list(Config) ->
     %% the info request here is to ensure that
     %% the queue has been initialized before making
     %% any requests to it
-    _ = raterl:info(simple_rate),
+    _ = raterl:info(exceeded_rate),
     ?assertMatch([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,limit_reached],
-                 [raterl:run(simple_rate, {rate, rate}, fun() -> ok end)
+                 [raterl:run(exceeded_rate, {rate, rate}, fun() -> ok end)
                    || _ <- lists:seq(1, 11)]),
-    ok = raterl_queue:stop(simple_rate).
+    ok = raterl_queue:stop(exceeded_rate).
 
 low_count(doc) -> ["Low count"];
 low_count(suite) -> [];
 low_count(Config) when is_list(Config) ->
-    {ok, _} = raterl_queue:new({simple_counter,
+    {ok, _} = raterl_queue:new({low_counter,
                                 [{regulator,
                                   [{name, counter},
                                    {type, counter},
                                    {limit, 10}]}]}),
     try
         ?assertEqual([ok,ok,ok,ok,ok],
-                     raterl_run_nested(simple_counter, {counter, counter}, 5))
+                     raterl_run_nested(low_counter, {counter, counter}, 5))
     after
-        _ = raterl_queue:stop(simple_counter)
+        _ = raterl_queue:stop(low_counter)
     end.
 
 close_count(doc) -> ["Close count"];
 close_count(suite) -> [];
 close_count(Config) when is_list(Config) ->
-    {ok, _} = raterl_queue:new({simple_counter,
+    {ok, _} = raterl_queue:new({close_counter,
                                 [{regulator,
                                   [{name, counter},
                                    {type, counter},
                                    {limit, 10}]}]}),
     try
         ?assertEqual([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok],
-                     raterl_run_nested(simple_counter, {counter, counter}, 10))
+                     raterl_run_nested(close_counter, {counter, counter}, 10))
     after
-        _ = raterl_queue:stop(simple_counter)
+        _ = raterl_queue:stop(close_counter)
     end.
 
 exceeded_count(doc) -> ["Exceeded count"];
 exceeded_count(suite) -> [];
 exceeded_count(Config) when is_list(Config) ->
-    {ok, _} = raterl_queue:new({simple_counter,
+    {ok, _} = raterl_queue:new({exceeded_counter,
                                 [{regulator,
                                   [{name, counter},
                                    {type, counter},
                                    {limit, 10}]}]}),
     try
         ?assertEqual([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,limit_reached],
-                     raterl_run_nested(simple_counter, {counter, counter}, 11)),
+                     raterl_run_nested(exceeded_counter, {counter, counter}, 11)),
         ?assertEqual([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,limit_reached],
-                     raterl_run_nested(simple_counter, {counter, counter}, 12)),
+                     raterl_run_nested(exceeded_counter, {counter, counter}, 12)),
         ?assertEqual([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,limit_reached],
-                     raterl_run_nested(simple_counter, {counter, counter}, 100))
+                     raterl_run_nested(exceeded_counter, {counter, counter}, 100))
     after
-        _ = raterl_queue:stop(simple_counter)
+        _ = raterl_queue:stop(exceeded_counter)
     end.
 
 monitored_count(doc) -> ["Monitored count"];
 monitored_count(suite) -> [];
 monitored_count(Config) when is_list(Config) ->
-    {ok, _} = raterl_queue:new({simple_counter,
+    {ok, _} = raterl_queue:new({monitored_counter,
                                 [{regulator,
                                   [{name, counter},
                                    {type, counter},
@@ -184,7 +184,7 @@ monitored_count(Config) when is_list(Config) ->
     RunGen =
         fun (UnblockKey) ->
                 fun () ->
-                        raterl:run(simple_counter, {counter, counter},
+                        raterl:run(monitored_counter, {counter, counter},
                                    fun () -> block(UnblockKey) end)
                 end
         end,
@@ -207,7 +207,7 @@ monitored_count(Config) when is_list(Config) ->
         ?assertEqual(ok, SoftRun())
     after
         _ = process_flag(trap_exit, CallerTrapExit),
-        _ = raterl_queue:stop(simple_counter)
+        _ = raterl_queue:stop(monitored_counter)
     end.
 
 queue_reconfiguration(doc) -> ["Add/remove queues in runtime"];
