@@ -33,7 +33,9 @@
          modify_regulator/3,
          cancel_timer/1,
          restart_timer/1,
-         stop/1]).
+         stop/1,
+         ask_for_counter_slot/1,
+         give_counter_slot_back/2]).
 
 %% Gen_server callbacks
 -export([init/1,
@@ -49,7 +51,9 @@
 -record(state, {
           name :: atom(),
           regulator :: proplists:proplist(),
-          timer_ref :: undefined | reference()
+          timer_ref :: undefined | reference(),
+          max_counter_slots :: non_neg_integer(),
+          counter_slots :: #{reference() => pid()}
          }).
 
 %%====================================================================
@@ -57,7 +61,7 @@
 %%====================================================================
 
 start_link({Name, Opts}) ->
-    RegName = raterl_utils:queue_name(Name), 
+    RegName = raterl_utils:queue_name(Name),
     gen_server:start_link({local, RegName}, ?MODULE, [{Name, Opts}], []).
 
 new(Args) ->
@@ -80,6 +84,17 @@ cancel_timer(Name) ->
 restart_timer(Name) ->
     gen_server:cast(raterl_utils:queue_name(Name), restart_timer).
 
+ask_for_counter_slot(Name) ->
+    RegName = raterl_utils:queue_name(Name),
+    Pid = whereis(RegName), % we look it up now for later reuse
+    case gen_server:call(Pid, ask_for_counter_slot, infinity) of
+        limit_reached -> limit_reached;
+        SlotRef -> {Pid, SlotRef}
+    end.
+
+give_counter_slot_back(Pid, SlotRef) ->
+    gen_server:cast(Pid, {give_counter_slot_back, SlotRef}).
+
 %%====================================================================
 %% Gen_server callbacks
 %%====================================================================
@@ -88,10 +103,15 @@ init([{Name, Opts}]) ->
     Regulator = proplists:get_value(regulator,
                                      Opts),
     TimerRef = init_regulator(Name, Regulator),
+    MaxCounterSlots = max_counter_slots(Regulator),
     {ok, #state{name = Name,
                 regulator = Regulator,
-                timer_ref = TimerRef}}.
+                timer_ref = TimerRef,
+                max_counter_slots = MaxCounterSlots,
+                counter_slots = #{}}}.
 
+handle_call(ask_for_counter_slot, {Pid, _}, State) ->
+    handle_request_for_counter_slot(Pid, State);
 handle_call(info, _From, State) ->
     {reply, State, State};
 handle_call({modify_regulator, RegName, Limit}, _From,
@@ -103,7 +123,10 @@ handle_call({modify_regulator, RegName, Limit}, _From,
 
     Regulator = lists:keyreplace(limit, 1, Regulator0,
                                  {limit, Limit}),
-    State = State0#state{regulator = Regulator},
+    MaxCounterSlots = max_counter_slots(Regulator),
+
+    State = State0#state{regulator = Regulator,
+                         max_counter_slots = MaxCounterSlots},
     {reply, ok, State};
 handle_call(cancel_timer, _From,
             #state{timer_ref = TimerRef} = State)
@@ -113,6 +136,8 @@ handle_call(cancel_timer, _From,
 handle_call(_Msg, _From, State) ->
     {reply, error, State}.
 
+handle_cast({give_counter_slot_back, SlotRef}, State) ->
+    handle_restitution_of_counter_slot(SlotRef, State);
 handle_cast(stop, State) ->
     {stop, normal, State};
 handle_cast(restart_timer, #state{name = QueueName,
@@ -148,6 +173,8 @@ handle_info({refresh_rate_limit, Table, Name},
                        undefined
                end,
     {noreply, State#state{timer_ref = TimerRef}};
+handle_info({'DOWN', Ref, process, _, _}, State) ->
+    handle_monitored_process_death(Ref, State);
 handle_info(_Msg, State) ->
     {noreply, State}.
 
@@ -181,17 +208,46 @@ init_regulator(QueueName, rate, Name, Opts) ->
     %% set a up a recurrent timer that sets the rate
     %% counter to the limit on every second
     set_refresh_timer(Table, Name);
-init_regulator(QueueName, counter, Name, Opts) ->
-    Limit = proplists:get_value(limit, Opts),
-    %% create the ets counter that will hold
-    %% the limit
-    Table = raterl_utils:table_name(QueueName),
-    ets:new(Table,
-            [public, set, named_table,
-             {write_concurrency, true}]),
-    ets:insert_new(Table, {Name, Limit + 1}),
+init_regulator(_QueueName, counter, _Name, _Opts) ->
     undefined.
+
+max_counter_slots(Opts) ->
+    case [proplists:get_value(OptName, Opts) || OptName <- [type, limit]] of
+        [rate, _] ->
+            0;
+        [counter, Limit] when is_integer(Limit), Limit >= 0 ->
+            Limit
+    end.
 
 set_refresh_timer(Table, Name) ->
     erlang:send_after(?REFRESH_TIMEOUT, self(),
                       {refresh_rate_limit, Table, Name}).
+
+handle_request_for_counter_slot(_, #state{counter_slots = CounterSlots,
+                                          max_counter_slots = MaxCounterSlots} = State)
+  when map_size(CounterSlots) >= MaxCounterSlots ->
+    {reply, limit_reached, State};
+handle_request_for_counter_slot(Pid, #state{counter_slots = CounterSlots} = State) ->
+    SlotRef = monitor(process, Pid),
+    UpdatedCounterSlots = CounterSlots#{ SlotRef => Pid },
+    UpdatedState = State#state{counter_slots = UpdatedCounterSlots},
+    {reply, SlotRef, UpdatedState}.
+
+handle_restitution_of_counter_slot(SlotRef, #state{counter_slots = CounterSlots} = State) ->
+    {_, UpdatedCounterSlots} = maps:take(SlotRef, CounterSlots),
+    demonitor(SlotRef),
+    UpdatedState = State#state{counter_slots = UpdatedCounterSlots},
+    {noreply, UpdatedState}.
+
+handle_monitored_process_death(Ref, #state{counter_slots = CounterSlots} = State) ->
+    case maps:take(Ref, CounterSlots) of
+        {_, UpdatedCounterSlots} ->
+            UpdatedState = State#state{counter_slots = UpdatedCounterSlots},
+            {noreply, UpdatedState};
+        error ->
+            % Certainly an early 'DOWN' message, already enqueued by the time
+            % we called `demonitor/1'. We could have used `demonitor/2' with `flush',
+            % but this is safer since it doesn't require selective receive, which
+            % can create performance-killing feedback loops upon overload.
+            {noreply, State}
+    end.

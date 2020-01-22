@@ -28,11 +28,14 @@
 %% -------------------------------------------------------------
 
 all() ->
-    [{group, rate}].
+    [{group, Group} || Group <- [rate, counter]].
 
 groups() ->
     [{rate, [],
         [low_rate, close_rate, exceeded_rate, queue_reconfiguration]
+     },
+     {counter, [],
+        [low_count, close_count, exceeded_count, monitored_count, queue_reconfiguration]
      }].
 
 init_per_suite(Config) ->
@@ -46,9 +49,9 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     Config.
 
-init_per_group(_GroupName, Config) ->
+init_per_group(GroupName, Config) ->
     % ct:print(default, 50, "starting test group: ~p", [GroupName]),
-    Config.
+    [{regulator_type, GroupName} | Config].
 
 end_per_group(_GroupName, Config) ->
     % ct:print(default, 50, "ending test group: ~p", [GroupName]),
@@ -121,11 +124,98 @@ exceeded_rate(Config) when is_list(Config) ->
                    || _ <- lists:seq(1, 11)]),
     ok = raterl_queue:stop(simple_rate).
 
+low_count(doc) -> ["Low count"];
+low_count(suite) -> [];
+low_count(Config) when is_list(Config) ->
+    {ok, _} = raterl_queue:new({simple_counter,
+                                [{regulator,
+                                  [{name, counter},
+                                   {type, counter},
+                                   {limit, 10}]}]}),
+    try
+        ?assertEqual([ok,ok,ok,ok,ok],
+                     raterl_run_nested(simple_counter, {counter, counter}, 5))
+    after
+        _ = raterl_queue:stop(simple_counter)
+    end.
+
+close_count(doc) -> ["Close count"];
+close_count(suite) -> [];
+close_count(Config) when is_list(Config) ->
+    {ok, _} = raterl_queue:new({simple_counter,
+                                [{regulator,
+                                  [{name, counter},
+                                   {type, counter},
+                                   {limit, 10}]}]}),
+    try
+        ?assertEqual([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok],
+                     raterl_run_nested(simple_counter, {counter, counter}, 10))
+    after
+        _ = raterl_queue:stop(simple_counter)
+    end.
+
+exceeded_count(doc) -> ["Exceeded count"];
+exceeded_count(suite) -> [];
+exceeded_count(Config) when is_list(Config) ->
+    {ok, _} = raterl_queue:new({simple_counter,
+                                [{regulator,
+                                  [{name, counter},
+                                   {type, counter},
+                                   {limit, 10}]}]}),
+    try
+        ?assertEqual([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,limit_reached],
+                     raterl_run_nested(simple_counter, {counter, counter}, 11)),
+        ?assertEqual([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,limit_reached],
+                     raterl_run_nested(simple_counter, {counter, counter}, 12)),
+        ?assertEqual([ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,limit_reached],
+                     raterl_run_nested(simple_counter, {counter, counter}, 100))
+    after
+        _ = raterl_queue:stop(simple_counter)
+    end.
+
+monitored_count(doc) -> ["Monitored count"];
+monitored_count(suite) -> [];
+monitored_count(Config) when is_list(Config) ->
+    {ok, _} = raterl_queue:new({simple_counter,
+                                [{regulator,
+                                  [{name, counter},
+                                   {type, counter},
+                                   {limit, 3}]}]}),
+    RunGen =
+        fun (UnblockKey) ->
+                fun () ->
+                        raterl:run(simple_counter, {counter, counter},
+                                   fun () -> block(UnblockKey) end)
+                end
+        end,
+    HardRun = RunGen(make_ref()),
+    SoftRun = RunGen(goodbye),
+    CallerTrapExit = process_flag(trap_exit, true),
+
+    try
+        Pids = [spawn_link(HardRun) || _ <- lists:seq(1, 4)],
+        timer:sleep(10),
+        ?assertEqual([false, true, true, true],
+                     lists:sort([is_process_alive(Pid) || Pid <- Pids])),
+        _ = self() ! goodbye,
+        ?assertEqual(limit_reached, SoftRun()),
+
+        _ = [exit(Pid, kill) || Pid <- Pids],
+        timer:sleep(10),
+        ?assertEqual([false, false, false, false],
+                     [is_process_alive(Pid) || Pid <- Pids]),
+        ?assertEqual(ok, SoftRun())
+    after
+        _ = process_flag(trap_exit, CallerTrapExit),
+        _ = raterl_queue:stop(simple_counter)
+    end.
+
 queue_reconfiguration(doc) -> ["Add/remove queues in runtime"];
 queue_reconfiguration(suite) -> [];
 queue_reconfiguration(Config) when is_list(Config) ->
-    QueueOptsA = [{regulator, [{name,rate}, {type,rate}, {limit,10}]}],
-    QueueOptsB = [{regulator, [{name,rate}, {type,rate}, {limit,20}]}],
+    {_, NameAndType} = lists:keyfind(regulator_type, 1, Config),
+    QueueOptsA = [{regulator, [{name,NameAndType}, {type,NameAndType}, {limit,10}]}],
+    QueueOptsB = [{regulator, [{name,NameAndType}, {type,NameAndType}, {limit,20}]}],
 
     % we start with no queues
     NoChildren = supervisor:which_children(raterl_queue_sup),
@@ -184,3 +274,23 @@ log(Format, Args) ->
             io:format(Pid, Format, Args)
     end.
 
+raterl_run_nested(Name, RegTypeAndName, Depth) ->
+    raterl_run_nested_recur(Name, RegTypeAndName, Depth, []).
+
+raterl_run_nested_recur(_Name, _RegTypeAndName, Depth, Acc)
+  when Depth =:= 0 ->
+    lists:reverse(Acc);
+raterl_run_nested_recur(Name, RegTypeAndName, Depth, Acc)
+  when Depth > 0 ->
+    case raterl:run(
+           Name, RegTypeAndName,
+           fun () -> raterl_run_nested_recur(Name, RegTypeAndName, Depth - 1, [ok | Acc]) end)
+    of
+        limit_reached ->
+            lists:reverse([limit_reached | Acc]);
+        ReturnValue ->
+            ReturnValue
+    end.
+
+block(UnblockKey) ->
+    receive UnblockKey -> ok end.
