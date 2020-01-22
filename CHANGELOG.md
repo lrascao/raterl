@@ -5,6 +5,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased][unreleased]
 ### Changed
     * counter-type regulators from an ETS-centered solution to dedicated `gen_server` processes
+### Removed
+    * OTP 17 support
 ### Fixed
     * unrecoverable loss of slots in counter-type regulators upon their limit being reached
     * unrecoverable loss of slots in counter-type regulators upon slot owners being brutally killed
