@@ -234,13 +234,13 @@ handle_request_for_counter_slot(Pid, #state{counter_slots = CounterSlots} = Stat
     {reply, SlotRef, UpdatedState}.
 
 handle_restitution_of_counter_slot(SlotRef, #state{counter_slots = CounterSlots} = State) ->
-    {_, UpdatedCounterSlots} = maps:take(SlotRef, CounterSlots),
+    {_, UpdatedCounterSlots} = raterl_utils:maps_take(SlotRef, CounterSlots),
     demonitor(SlotRef),
     UpdatedState = State#state{counter_slots = UpdatedCounterSlots},
     {noreply, UpdatedState}.
 
 handle_monitored_process_death(Ref, #state{counter_slots = CounterSlots} = State) ->
-    case maps:take(Ref, CounterSlots) of
+    case raterl_utils:maps_take(Ref, CounterSlots) of
         {_, UpdatedCounterSlots} ->
             UpdatedState = State#state{counter_slots = UpdatedCounterSlots},
             {noreply, UpdatedState};
