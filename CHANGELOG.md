@@ -7,6 +7,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Removed
 ### Fixed
 
+## [0.3.1] - 04-02-2020
+### Changed
+### Removed
+### Fixed
+    * version in .app.src
+
 ## [0.3.0] - 04-02-2020
 ### Changed
     * counter-type regulators from an ETS-centered solution to dedicated `gen_server` processes
