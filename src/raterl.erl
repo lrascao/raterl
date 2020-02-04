@@ -37,17 +37,17 @@
 run(Name, Fun) ->
     %% obtain the queue configuration from ets
     [{Name, Type, RegulatorName}] = ets:lookup(raterl, Name),
-    run(Name, {Type, RegulatorName}, Fun). 
+    run(Name, {Type, RegulatorName}, Fun).
 
 run(Name, {Type, RegulatorName}, Fun) ->
-    case ask(Name, RegulatorName) of
+    case ask(Name, Type, RegulatorName) of
         limit_reached ->
             limit_reached;
-        Ref when is_reference(Ref) ->
+        {SlotSource, Slot} ->
             try
                 Fun()
             after
-                done(Name, {Type, RegulatorName})
+                done(SlotSource, Slot)
             end
     end.
 
@@ -64,18 +64,16 @@ reconfigure_queues(Queues) ->
 %% Internal functions
 %%====================================================================
 
-ask(Name, RegulatorName) ->
-    Ref = make_ref(),
+ask(Name, rate, RegulatorName) ->
     Table = raterl_utils:table_name(Name),
     case ets:update_counter(Table, RegulatorName, [{2, -1, 0, 0}]) of
         [0] -> limit_reached;
-        [_N] -> Ref
-    end.
+        [_N] -> {rate, slot}
+    end;
+ask(Name, counter, _RegulatorName) ->
+    raterl_queue:ask_for_counter_slot(Name).
 
-done(_Name, {rate, _RegulatorName}) -> ok;
-done(Name, {counter, RegulatorName}) ->
+done(rate, _) -> ok;
+done(CounterPid, SlotRef) ->
     %% return one resource back to the pool
-    Table = raterl_utils:table_name(Name),
-    ets:update_counter(Table, RegulatorName, {2, 1}),
-    ok.
-
+    raterl_queue:give_counter_slot_back(CounterPid, SlotRef).

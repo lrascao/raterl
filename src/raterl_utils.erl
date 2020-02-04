@@ -26,7 +26,8 @@
 
 %% API
 -export([table_name/1,
-         queue_name/1]).
+         queue_name/1,
+         maps_take/2]).
 
 %%====================================================================
 %% API functions
@@ -38,6 +39,21 @@ table_name(Name) ->
 queue_name(Name) ->
     list_to_atom("raterl_" ++
                  atom_to_list(Name)).
+
+-ifdef(NO_MAPS_TAKE).
+maps_take(Key, Map) ->
+    try maps:get(Key, Map) of
+        Value ->
+            UpdatedMap = maps:remove(Key, Map),
+            {Value, UpdatedMap}
+    catch
+        error:{badkey, _} ->
+            error
+    end.
+-else.
+maps_take(Key, Map) ->
+    maps:take(Key, Map).
+-endif.
 
 %%====================================================================
 %% Internal functions
