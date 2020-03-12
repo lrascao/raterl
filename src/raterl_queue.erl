@@ -115,19 +115,12 @@ handle_call(ask_for_counter_slot, {Pid, _}, State) ->
 handle_call(info, _From, State) ->
     {reply, State, State};
 handle_call({modify_regulator, RegName, Limit}, _From,
-            #state{name = Name,
-                   regulator = Regulator0} = State0) ->
+    #state{name = Name,
+           regulator = Regulator} = State) ->
     Table = raterl_utils:table_name(Name),
-    %% we update the counter to the new limit immediately!
-    true = ets:update_element(Table, RegName, {2, Limit}),
+    RegulatorType = proplists:get_value(type, Regulator),
 
-    Regulator = lists:keyreplace(limit, 1, Regulator0,
-                                 {limit, Limit}),
-    MaxCounterSlots = max_counter_slots(Regulator),
-
-    State = State0#state{regulator = Regulator,
-                         max_counter_slots = MaxCounterSlots},
-    {reply, ok, State};
+    modify_regulator(Table, Regulator, RegName, RegulatorType, Limit, State);
 handle_call(cancel_timer, _From,
             #state{timer_ref = TimerRef} = State)
     when TimerRef =/= undefined ->
@@ -210,6 +203,23 @@ init_regulator(QueueName, rate, Name, Opts) ->
     set_refresh_timer(Table, Name);
 init_regulator(_QueueName, counter, _Name, _Opts) ->
     undefined.
+
+modify_regulator(Table, Regulator0, RegName, rate, Limit, State0) ->
+    %% we update the counter to the new limit immediately!
+    true = ets:update_element(Table, RegName, {2, Limit}),
+
+    Regulator = lists:keyreplace(limit, 1, Regulator0,
+                                 {limit, Limit}),
+    State = State0#state{regulator = Regulator},
+    {reply, ok, State};
+modify_regulator(_Table, Regulator0, _RegName, counter, Limit, State0) ->
+    Regulator = lists:keyreplace(limit, 1, Regulator0,
+        {limit, Limit}),
+    MaxCounterSlots = max_counter_slots(Regulator),
+
+    State = State0#state{regulator = Regulator,
+        max_counter_slots = MaxCounterSlots},
+    {reply, ok, State}.
 
 max_counter_slots(Opts) ->
     case [proplists:get_value(OptName, Opts) || OptName <- [type, limit]] of
