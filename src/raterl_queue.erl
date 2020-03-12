@@ -214,11 +214,11 @@ modify_regulator(Table, Regulator0, RegName, rate, Limit, State0) ->
     {reply, ok, State};
 modify_regulator(_Table, Regulator0, _RegName, counter, Limit, State0) ->
     Regulator = lists:keyreplace(limit, 1, Regulator0,
-        {limit, Limit}),
+                                 {limit, Limit}),
     MaxCounterSlots = max_counter_slots(Regulator),
 
     State = State0#state{regulator = Regulator,
-        max_counter_slots = MaxCounterSlots},
+                         max_counter_slots = MaxCounterSlots},
     {reply, ok, State}.
 
 max_counter_slots(Opts) ->
