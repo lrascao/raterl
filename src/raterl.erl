@@ -28,7 +28,8 @@
 -export([run/2, run/3,
          info/1,
          modify_regulator/3,
-         reconfigure_queues/1]).
+         reconfigure_queues/1,
+         query_regulator/3]).
 
 %%====================================================================
 %% API functions
@@ -59,6 +60,11 @@ modify_regulator(Name, RegName, Limit) ->
 
 reconfigure_queues(Queues) ->
     raterl_server:reconfigure(Queues).
+
+query_regulator(Name, rate, RegulatorName) ->
+    Table = raterl_utils:table_name(Name),
+    [{RegulatorName, Value}] = ets:lookup(Table, RegulatorName),
+    Value.
 
 %%====================================================================
 %% Internal functions
