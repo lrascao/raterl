@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/lrascao/raterl.svg?branch=master)](https://travis-ci.org/lrascao/raterl)
+[![Build Status](https://github.com/lrascao/raterl/workflows/build/badge.svg)](https://github.com/lrascao/raterl)
 
 # raterl
 
